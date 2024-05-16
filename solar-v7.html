@@ -1,0 +1,554 @@
+<html>
+  <title>Visualise Your Solar House</title>
+  <meta charset="utf-8">
+  <meta name="viewport"
+    content="width=device-width, height=device-height, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: grey;
+      overflow: hidden;
+    }
+
+    canvas {
+      border: 0;
+      width: 100vw;
+      height: 60vh;
+      display: block;
+
+    }
+
+    #title {
+      background-color: beige;
+      color: black;
+      text-align: center;
+      padding: 40px;
+    }
+
+    #color-selection {
+      display: none;
+      padding: 25px 0;
+      background-color: aqua;
+      width: 100%;
+
+    }
+
+    #color-selection>div {
+      width: 30%;
+      display: flex;
+      margin: 0 auto;
+    }
+
+    .color-button {
+      display: inline;
+      width: 30px;
+      height: 30px;
+      background-color: bisque;
+      border-radius: 15px;
+      margin: 0 auto;
+    }
+
+    #black {
+      background-color: black;
+    }
+
+    #brown {
+      background-color: brown;
+    }
+
+    #grey {
+      background-color: grey;
+    }
+
+    #console {
+      padding: 20px;
+      color: blue;
+      font-size: large;
+      text-align: center;
+
+    }
+
+    button {
+      background-color: white;
+      border: 1px solid black;
+      border-radius: 10px;
+      padding: 5px 8px;
+      margin: 8px;
+    }
+
+    a {
+      text-decoration: none;
+      color: blue;
+    }
+  </style>
+
+  <body>
+    <div id="title">Visualise Your PV House
+      <br><br>( version 1.0.1 )
+    </div>
+
+    <canvas id="canvas"></canvas>
+    <div id="color-selection">
+      <div>
+        <div class="color-button" id="black"></div>
+        <div class="color-button" id="brown"></div>
+        <div class="color-button" id="grey"></div>
+      </div>
+    </div>
+    <div id="console">Click here to add PV tiles</div>
+    <script id="vertex-shader-3d" type="x-shader/x-vertex">
+    uniform mat4 u_worldViewProjection;
+
+    attribute vec4 a_position;
+
+    void main() {
+      gl_Position = u_worldViewProjection * a_position;
+    }
+</script>
+    <script id="fragment-shader-3d" type="x-shader/x-fragment">
+      precision highp float;
+
+      void main() {
+        //gl_FragColor = vec4(0.38, 0.2, 0.1, 0.55);
+        gl_FragColor = vec4(0.65, 0.6, 0.5, 0.77);
+      }
+</script>
+
+    <script id="vertex-shader-tiles" type="x-shader/x-vertex">
+      uniform mat4 u_worldViewProjection;
+
+      attribute vec4 a_position;
+
+      void main() {
+        gl_Position = u_worldViewProjection * a_position;
+      }
+</script>
+    <script id="fragment-shader-tiles" type="x-shader/x-fragment">
+  precision highp float;
+
+  uniform vec4 u_color;
+
+  void main() {
+    gl_FragColor = u_color;
+  }
+</script>
+
+    <script src="./webgl-utils.js"></script>
+    <script src="./m4.js"></script>
+
+    <script>
+
+      "use strict";
+
+
+      const colorButtonBlack = document.getElementsByClassName('color-button')[0];
+      const colorButtonBrown = document.getElementsByClassName('color-button')[1];
+      const colorButtongrey = document.getElementsByClassName('color-button')[2];
+
+      const console = document.getElementById('console');
+
+      let aspect = window.innerWidth / window.innerHeight;
+
+      let ifTiles, tileColor = [0.3, 0.1, 0, 0.85];
+
+
+      //gl初始化
+      var canvas = document.querySelector("#canvas");
+      var gl = canvas.getContext("webgl");
+      if (!gl) {
+        //return;
+      }
+
+      //贴图区
+      //projection & view
+      const fieldOfViewRadians = degToRad(60);
+      const up = [0, 1, 0];
+      let cameraPosition = [100, 0, 100], targetPosition = [0, 0, 0];
+      let cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
+      let viewMatrix = m4.inverse(cameraMatrix);
+
+      //tiles
+      const rowNum = 12, columnNum = 5;
+      let gapW = 0.2, gapH = 0.2;
+
+      const length = 20, width = 8, height = 6, innerLength = 10;
+
+      let tiles = [], PVs = [];
+      const uniformsThatAreComputedForEachtile = {
+        u_worldViewProjection: m4.identity(),
+        u_color: [0.65, 0.6, 0.5, 0.77],
+
+      };
+
+      const arrays = {
+        position: { numComponents: 3, data: [-width / 2, -height / 2, 0, width / 2, -height / 2, 0, -width / 2, height / 2, 0, width / 2, height / 2, 0], },
+        indices: { numComponents: 3, data: [0, 1, 2, 1, 2, 3], },
+      };
+
+      const xRot = Math.PI / 3.5;
+      const bodyWidth = (width + gapW) * rowNum - 10,
+        bodyHeight = 25,
+        bodyLength = (height + gapH) * columnNum * Math.sin(xRot) - 2;
+
+      const feet = {
+
+        position: {
+          numComponents: 3, data: [
+            -bodyWidth / 2, 2, bodyLength,
+            -bodyWidth / 2, -bodyHeight, bodyLength,//1
+
+            bodyWidth / 2, 2, bodyLength,
+            bodyWidth / 2, -bodyHeight, bodyLength,//3
+
+            -bodyWidth / 2, 2, -bodyLength,
+            -bodyWidth / 2, -bodyHeight, -bodyLength,//5
+
+            bodyWidth / 2, 2, -bodyLength,
+            bodyWidth / 2, -bodyHeight, -bodyLength,//7
+
+          ],
+        },
+        indices: { numComponents: 2, data: [0, 1, 2, 3, 4, 5, 6, 7, 1, 3, 5, 7, 1, 5, 3, 7], },
+      };
+
+      function drawtiles() {
+
+        for (var i = 0; i < rowNum; i++) {
+
+          for (var j = 0; j < columnNum; j++) {
+
+            tiles.push({
+
+              yRotation: 0,//Math.PI/2,
+              xRotation: xRot,
+              zRotation: 0,//Math.PI/4,
+              xTranslation: - (width + gapW) * (i - rowNum / 2) - width / 2 - gapW / 2,
+              yTranslation: (j - columnNum / 2) * (height + gapH) * Math.cos(xRot) + gapH / 2 + bodyHeight / 2,
+              zTranslation: (height + gapH) * j * Math.sin(xRot) - (height + gapH) * (columnNum - 0.5) * Math.sin(xRot),
+
+              u_color: (255, 0.5, 1),
+
+            });
+
+            tiles.push({
+
+              yRotation: 0,//Math.PI/2,
+              xRotation: -xRot,
+              zRotation: 0,//Math.PI/4,
+              xTranslation: - (width + gapW) * (i - rowNum / 2) - width / 2 - gapW / 2,
+              yTranslation: (j - columnNum / 2) * (height + gapH) * Math.cos(-xRot) + gapH / 2 + bodyHeight / 2,
+              zTranslation: (height + gapH) * j * Math.sin(-xRot) + (height + gapH) * (columnNum - 0.5) * Math.sin(xRot),
+
+            });
+
+          }
+
+        }
+
+      }
+
+
+      function drawPVs() {
+
+        for (var i = 1; i < rowNum - 1; i++) {
+
+          for (var j = 1; j < columnNum - 1; j++) {
+
+            PVs.push({
+
+              yRotation: 0,//Math.PI/2,
+              xRotation: xRot,
+              zRotation: 0,//Math.PI/4,
+              xTranslation: - (width + gapW) * (i - rowNum / 2) - width / 2 - gapW / 2,
+              yTranslation: (j - columnNum / 2) * (height + gapH) * Math.cos(xRot) + gapH / 2 + bodyHeight / 2,
+              zTranslation: (height + gapH) * j * Math.sin(xRot) - (height + gapH) * (columnNum - 0.5) * Math.sin(xRot),
+
+            });
+
+            PVs.push({
+
+              yRotation: 0,//Math.PI/2,
+              xRotation: -xRot,
+              zRotation: 0,//Math.PI/4,
+              xTranslation: - (width + gapW) * (i - rowNum / 2) - width / 2 - gapW / 2,
+              yTranslation: (j - columnNum / 2) * (height + gapH) * Math.cos(-xRot) + gapH / 2 + bodyHeight / 2,
+              zTranslation: (height + gapH) * j * Math.sin(-xRot) + (height + gapH) * (columnNum - 0.5) * Math.sin(xRot),
+
+            });
+
+          }
+
+        }
+
+      }
+
+      drawtiles();
+      drawPVs();
+
+      const bufferInfo = webglUtils.createBufferInfoFromArrays(gl, arrays);
+      const feetBufferInfo = webglUtils.createBufferInfoFromArrays(gl, feet);
+      const programInfo = webglUtils.createProgramInfo(gl, ["vertex-shader-3d", "fragment-shader-3d"]);
+      const programTilesInfo = webglUtils.createProgramInfo(gl, ["vertex-shader-tiles", "fragment-shader-tiles"]);
+
+      function degToRad(d) {
+        return d * Math.PI / 180;
+      }
+
+
+      function drawScene() {
+
+        resizeCanvasToDisplaySize(canvas);
+        aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+
+        // Tell WebGL how to convert from clip space to pixels
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        gl.clearColor(0.1, 0.1, 0.1, 1.0);
+        // Clear the canvas AND the depth buffer.
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        var projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+
+        var cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
+        viewMatrix = m4.inverse(cameraMatrix);
+
+        var viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+
+        gl.useProgram(programInfo.program);
+        webglUtils.setBuffersAndAttributes(gl, programInfo, bufferInfo);
+
+        var worldMatrix = m4.xRotation(0);
+
+        m4.multiply(viewProjectionMatrix, worldMatrix, uniformsThatAreComputedForEachtile.u_worldViewProjection);
+
+        webglUtils.setUniforms(programInfo, uniformsThatAreComputedForEachtile);
+
+
+        tiles.forEach(function (tile) {
+
+          let worldMatrix = m4.xRotation(0);
+          worldMatrix = m4.translate(worldMatrix, tile.xTranslation, tile.yTranslation, tile.zTranslation);
+          worldMatrix = m4.yRotate(worldMatrix, tile.yRotation);
+          worldMatrix = m4.xRotate(worldMatrix, tile.xRotation);
+          worldMatrix = m4.zRotate(worldMatrix, tile.zRotation);
+
+          // Multiply the matrices.
+          m4.multiply(viewProjectionMatrix, worldMatrix, uniformsThatAreComputedForEachtile.u_worldViewProjection);
+
+          // Set the uniforms we just computed
+          webglUtils.setUniforms(programInfo, uniformsThatAreComputedForEachtile);
+
+          // Draw the geometry.
+          gl.drawElements(gl.TRIANGLES, bufferInfo.numElements, gl.UNSIGNED_SHORT, 0);
+
+        });
+
+        drawBody();
+
+        if (ifTiles) {
+          drawTiles();
+        }
+
+      }
+
+      function drawTiles() {
+
+        resizeCanvasToDisplaySize(canvas);
+        aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+
+        // Tell WebGL how to convert from clip space to pixels
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+
+        var projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+
+        var cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
+        viewMatrix = m4.inverse(cameraMatrix);
+
+        var viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+
+        gl.useProgram(programTilesInfo.program);
+        webglUtils.setBuffersAndAttributes(gl, programTilesInfo, bufferInfo);
+
+        var worldMatrix = m4.xRotation(0);
+
+        m4.multiply(viewProjectionMatrix, worldMatrix, uniformsThatAreComputedForEachtile.u_worldViewProjection);
+
+        webglUtils.setUniforms(programTilesInfo, uniformsThatAreComputedForEachtile);
+
+
+        PVs.forEach(function (tile) {
+
+          let worldMatrix = m4.xRotation(0);
+          worldMatrix = m4.translate(worldMatrix, tile.xTranslation, tile.yTranslation, tile.zTranslation);
+          worldMatrix = m4.yRotate(worldMatrix, tile.yRotation);
+          worldMatrix = m4.xRotate(worldMatrix, tile.xRotation);
+          worldMatrix = m4.zRotate(worldMatrix, tile.zRotation);
+
+          // Multiply the matrices.
+          m4.multiply(viewProjectionMatrix, worldMatrix, uniformsThatAreComputedForEachtile.u_worldViewProjection);
+          uniformsThatAreComputedForEachtile.u_color = tileColor;
+
+          // Set the uniforms we just computed
+          webglUtils.setUniforms(programTilesInfo, uniformsThatAreComputedForEachtile);
+          //webglUtils.setUniforms(programTilesInfo, uniformsThatAreComputedForEachtile);
+
+          // Draw the geometry.
+          gl.drawElements(gl.TRIANGLES, bufferInfo.numElements, gl.UNSIGNED_SHORT, 0);
+
+        });
+
+      }
+
+
+
+      function drawBody() {
+
+        resizeCanvasToDisplaySize(canvas);
+        aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+
+        // Tell WebGL how to convert from clip space to pixels
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        // gl.clearColor(1.0,1.0,1.0,1.0);
+        // Clear the canvas AND the depth buffer.
+        //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        var projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+
+        var cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
+        viewMatrix = m4.inverse(cameraMatrix);
+
+        var viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+
+        gl.useProgram(programInfo.program);
+        webglUtils.setBuffersAndAttributes(gl, programInfo, feetBufferInfo);
+
+        var worldMatrix = m4.xRotation(0);
+
+        m4.multiply(viewProjectionMatrix, worldMatrix, uniformsThatAreComputedForEachtile.u_worldViewProjection);
+
+        webglUtils.setUniforms(programInfo, uniformsThatAreComputedForEachtile);
+
+
+
+        gl.drawElements(gl.LINES, feetBufferInfo.numElements, gl.UNSIGNED_SHORT, 0);
+        //console.log('drawScene');
+
+      }
+
+      function resizeCanvasToDisplaySize(canvas, multiplier) {
+        multiplier = multiplier || 2;
+        const width = canvas.clientWidth * multiplier | 0;
+        const height = canvas.clientHeight * multiplier | 0;
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          aspect = width / height;
+          return true;
+        }
+        return false;
+        //drawScene();
+      }
+
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+
+      function onMouseDown(e) {
+
+        //isMouseDown = true;
+        canvas.addEventListener('mousemove', onMouseMove, false);
+
+        x1 = e.clientX, y1 = e.clientY;
+
+        //console.log('mousedown');
+
+      }
+
+      const radius = 141.4;
+      let rad = 0;
+      function onMouseMove(e) {
+
+        x2 = e.clientX, y2 = e.clientY;
+
+        rad -= (x2 - x1) / 50;
+
+        cameraPosition[0] = radius * Math.cos(rad);
+        cameraPosition[2] = radius * Math.sin(rad);
+
+        //cameraPosition[1] += y2-y1;
+        //console.log(cameraPosition[1]); 
+
+        var cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
+        viewMatrix = m4.inverse(cameraMatrix);
+
+        drawScene();
+        x1 = x2;
+        y1 = y2;
+      }
+
+      function onMouseUp() {
+        x1 = 0;
+        x2 = 0;
+        y1 = 0;
+        y2 = 0;
+        //isMouseDown = false;
+        canvas.removeEventListener('mousemove', onMouseMove, false);
+      }
+
+
+      function changeColorBlack() {
+
+        tileColor = [0, 0, 0, 0.9];
+        drawScene();
+
+      }
+
+      function changeColorBrown() {
+
+        tileColor = [0.3, 0.1, 0, 0.85];
+        drawScene();
+
+      }
+
+      function changeColorgrey() {
+
+        tileColor = [0.15, 0.15, 0.15, 0.85];
+        drawScene();
+
+      }
+
+
+
+      function addTiles() {
+        ifTiles = true;
+        drawScene();
+        document.getElementById('color-selection').style.display = 'flex';
+        console.innerHTML = "Click 👆 button<br> to switch color";
+        document.getElementById('title').innerHTML = "Total Power: 4.8KW<br><br>(60 tiles added)";
+        console.style.color = "grey";
+        console.removeEventListener('click', addTiles, false);
+
+      }
+
+      canvas.addEventListener('mousedown', onMouseDown, false);
+      canvas.addEventListener('mouseup', onMouseUp, false);
+
+      drawScene();
+
+      window.addEventListener('resize', drawScene, false);
+
+      colorButtonBlack.addEventListener('click', changeColorBlack, false);
+      colorButtonBrown.addEventListener('click', changeColorBrown, false);
+      colorButtongrey.addEventListener('click', changeColorgrey, false);
+      console.addEventListener('click', addTiles, false);
+
+
+    </script>
+
+
+  </body>
+
+</html>
