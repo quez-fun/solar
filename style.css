@@ -1,0 +1,113 @@
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    color: grey;
+    overflow: hidden;
+}
+
+.float-on-top {
+    position: absolute;
+    z-index: 2;
+    width: 100vw;
+    height: 100vh;
+}
+
+.upper-area {
+    position: absolute;
+    top: 0;
+    width: 100vw;
+    height: 20vh;
+}
+
+.lower-area {
+    position: absolute;
+    bottom: 0;
+    width: 100vw;
+    height: 22vh;
+}
+
+canvas {
+    position: absolute;
+    z-index: 1;
+    border: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+
+}
+
+#title {
+    color: white;
+    text-align: center;
+    padding: 80px;
+}
+
+#color-selection {
+    display:  none;
+    width: 100%;
+}
+.number-selection {
+    background-color: pink;
+}
+
+#color-selection>div {
+    width: 50%;
+    max-width: 350px;
+    display: flex;
+    margin: 0 auto;
+    padding: 10px 0;
+}
+
+.color-button {
+    display: inline;
+    width: 30px;
+    height: 30px;
+    background-color: bisque;
+    border-radius: 30px;
+    margin: 0 auto;
+    border: solid 0.5px rgb(255, 249, 219);
+    box-shadow: 0px 0px 5px rgb(255, 249, 219);
+
+    color: #555;
+    text-align: center;
+}
+
+#plus {
+    font-size: 35px;
+    line-height: 30px;
+}
+
+#minus {
+    font-size: 55px;
+    line-height: 20px;
+}
+
+#gap {
+    visibility: hidden;
+    width: 0px;
+}
+
+#black {
+    background-color: black;
+}
+
+#brown {
+    background-color: rgb(167, 80, 36);
+}
+
+#grey {
+    background-color: grey;
+}
+
+#console {
+    padding: 20px;
+    color: rgb(0, 255, 208);
+    font-size: large;
+    text-align: center;
+
+}
+
+span {
+    color: aquamarine;
+    font-weight: 300;
+}
