@@ -1,121 +1,41 @@
+<!DOCTYPE html>
 <html>
-  <title>Visualise Your Solar House</title>
-  <meta charset="utf-8">
-  <meta name="viewport"
-    content="width=device-width, height=device-height, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      color: grey;
-      overflow: hidden;
-    }
 
-    canvas {
-      border: 0;
-      width: 100vw;
-      height: 60vh;
-      display: block;
-
-    }
-
-    #title {
-      background-color: beige;
-      color: black;
-      text-align: center;
-      padding: 40px;
-    }
-
-    #color-selection {
-      display: none;
-      padding: 25px 0;
-      background-color: aqua;
-      width: 100%;
-
-    }
-
-    #color-selection>div {
-      width: 30%;
-      display: flex;
-      margin: 0 auto;
-    }
-
-    .color-button {
-      display: inline;
-      width: 30px;
-      height: 30px;
-      background-color: bisque;
-      border-radius: 15px;
-      margin: 0 auto;
-    }
-
-    #black {
-      background-color: black;
-    }
-
-    #brown {
-      background-color: brown;
-    }
-
-    #grey {
-      background-color: grey;
-    }
-
-    #console {
-      padding: 20px;
-      color: blue;
-      font-size: large;
-      text-align: center;
-
-    }
-
-    button {
-      background-color: white;
-      border: 1px solid black;
-      border-radius: 10px;
-      padding: 5px 8px;
-      margin: 8px;
-    }
-
-    a {
-      text-decoration: none;
-      color: blue;
-    }
-  </style>
+  <head>
+    <title>Visualise Your Solar House</title>
+    <meta charset="utf-8">
+    <meta name="viewport"
+      content="width=device-width, height=device-height, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link rel='stylesheet' href='./style.css'>
+  </head>
 
   <body>
-    <div id="title">Visualise Your PV House
-      <br><br>( version 1.0.1 )
+    <div class="float-on-top">
+      <div class="upper-area">
+        <div id="title"><b>Visualise Your PV House</b>
+          <br><br>( version 1.0.2 )
+        </div>
+      </div>
+      <div class="lower-area">
+
+        <div id="color-selection">
+
+          <div>
+            <div class="color-button" id="black"></div>
+            <div class="color-button" id="brown"></div>
+            <div class="color-button" id="grey"></div>
+            <div class="color-button" id="gap"></div>
+            <div class="color-button" id="minus"> - </div>
+            <div class="color-button" id="plus"> + </div>
+          </div>
+        </div>
+        <div id="console">Click here to add PV tiles</div>
+      </div>
     </div>
 
     <canvas id="canvas"></canvas>
-    <div id="color-selection">
-      <div>
-        <div class="color-button" id="black"></div>
-        <div class="color-button" id="brown"></div>
-        <div class="color-button" id="grey"></div>
-      </div>
-    </div>
-    <div id="console">Click here to add PV tiles</div>
+
     <script id="vertex-shader-3d" type="x-shader/x-vertex">
-    uniform mat4 u_worldViewProjection;
-
-    attribute vec4 a_position;
-
-    void main() {
-      gl_Position = u_worldViewProjection * a_position;
-    }
-</script>
-    <script id="fragment-shader-3d" type="x-shader/x-fragment">
-      precision highp float;
-
-      void main() {
-        //gl_FragColor = vec4(0.38, 0.2, 0.1, 0.55);
-        gl_FragColor = vec4(0.65, 0.6, 0.5, 0.77);
-      }
-</script>
-
-    <script id="vertex-shader-tiles" type="x-shader/x-vertex">
       uniform mat4 u_worldViewProjection;
 
       attribute vec4 a_position;
@@ -123,16 +43,34 @@
       void main() {
         gl_Position = u_worldViewProjection * a_position;
       }
-</script>
+    </script>
+    <script id="fragment-shader-3d" type="x-shader/x-fragment">
+        precision highp float;
+
+        void main() {
+          //gl_FragColor = vec4(0.38, 0.2, 0.1, 0.55);
+          gl_FragColor = vec4(0.65, 0.6, 0.5, 0.77);
+        }
+  </script>
+
+    <script id="vertex-shader-tiles" type="x-shader/x-vertex">
+        uniform mat4 u_worldViewProjection;
+
+        attribute vec4 a_position;
+
+        void main() {
+          gl_Position = u_worldViewProjection * a_position;
+        }
+  </script>
     <script id="fragment-shader-tiles" type="x-shader/x-fragment">
-  precision highp float;
+    precision highp float;
 
-  uniform vec4 u_color;
+    uniform vec4 u_color;
 
-  void main() {
-    gl_FragColor = u_color;
-  }
-</script>
+    void main() {
+      gl_FragColor = u_color;
+    }
+  </script>
 
     <script src="./webgl-utils.js"></script>
     <script src="./m4.js"></script>
@@ -141,16 +79,18 @@
 
       "use strict";
 
-
       const colorButtonBlack = document.getElementsByClassName('color-button')[0];
       const colorButtonBrown = document.getElementsByClassName('color-button')[1];
       const colorButtongrey = document.getElementsByClassName('color-button')[2];
+
+      const minusButton = document.getElementsByClassName('color-button')[4];
+      const plusButton = document.getElementsByClassName('color-button')[5];
 
       const console = document.getElementById('console');
 
       let aspect = window.innerWidth / window.innerHeight;
 
-      let ifTiles, tileColor = [0.3, 0.1, 0, 0.85];
+      let ifTiles, tileColor = [0.3, 0.1, 0, 1];
 
 
       //gl初始化
@@ -164,7 +104,9 @@
       //projection & view
       const fieldOfViewRadians = degToRad(60);
       const up = [0, 1, 0];
-      let cameraPosition = [100, 0, 100], targetPosition = [0, 0, 0];
+      let cameraPosition = [180, -10, 60], targetPosition = [0, 0, 0];
+
+      const radius = Math.sqrt(180*180 + 10*10 + 60*60);
       let cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
       let viewMatrix = m4.inverse(cameraMatrix);
 
@@ -173,6 +115,8 @@
       let gapW = 0.2, gapH = 0.2;
 
       const length = 20, width = 8, height = 6, innerLength = 10;
+
+      let tileRow = 11, tileColumn = 2;
 
       let tiles = [], PVs = [];
       const uniformsThatAreComputedForEachtile = {
@@ -212,7 +156,7 @@
         indices: { numComponents: 2, data: [0, 1, 2, 3, 4, 5, 6, 7, 1, 3, 5, 7, 1, 5, 3, 7], },
       };
 
-      function drawtiles() {
+      function drawRoof() {
 
         for (var i = 0; i < rowNum; i++) {
 
@@ -251,9 +195,9 @@
 
       function drawPVs() {
 
-        for (var i = 1; i < rowNum - 1; i++) {
+        for (var i = 1; i < tileRow; i++) {
 
-          for (var j = 1; j < columnNum - 1; j++) {
+          for (var j = 1; j < tileColumn; j++) {
 
             PVs.push({
 
@@ -283,7 +227,7 @@
 
       }
 
-      drawtiles();
+      drawRoof();
       drawPVs();
 
       const bufferInfo = webglUtils.createBufferInfoFromArrays(gl, arrays);
@@ -361,7 +305,7 @@
 
         // Tell WebGL how to convert from clip space to pixels
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
+        gl.clearColor(0.1, 0.1, 0.1, 1.0);
 
         var projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
 
@@ -459,7 +403,7 @@
       function onMouseDown(e) {
 
         //isMouseDown = true;
-        canvas.addEventListener('mousemove', onMouseMove, false);
+        window.addEventListener('mousemove', onMouseMove, false);
 
         x1 = e.clientX, y1 = e.clientY;
 
@@ -467,7 +411,6 @@
 
       }
 
-      const radius = 141.4;
       let rad = 0;
       function onMouseMove(e) {
 
@@ -495,27 +438,27 @@
         y1 = 0;
         y2 = 0;
         //isMouseDown = false;
-        canvas.removeEventListener('mousemove', onMouseMove, false);
+        window.removeEventListener('mousemove', onMouseMove, false);
       }
 
 
       function changeColorBlack() {
 
-        tileColor = [0, 0, 0, 0.9];
+        tileColor = [0, 0, 0, 1];
         drawScene();
 
       }
 
       function changeColorBrown() {
 
-        tileColor = [0.3, 0.1, 0, 0.85];
+        tileColor = [0.3, 0.1, 0, 1];
         drawScene();
 
       }
 
       function changeColorgrey() {
 
-        tileColor = [0.15, 0.15, 0.15, 0.85];
+        tileColor = [0.15, 0.15, 0.15, 1];
         drawScene();
 
       }
@@ -526,15 +469,43 @@
         ifTiles = true;
         drawScene();
         document.getElementById('color-selection').style.display = 'flex';
-        console.innerHTML = "Click 👆 button<br> to switch color";
-        document.getElementById('title').innerHTML = "Total Power: 4.8KW<br><br>(60 tiles added)";
+        console.innerHTML = "";
+        refreshTitle()
         console.style.color = "grey";
+        console.innerHTML = "click on buttons to customise";
         console.removeEventListener('click', addTiles, false);
 
       }
 
-      canvas.addEventListener('mousedown', onMouseDown, false);
-      canvas.addEventListener('mouseup', onMouseUp, false);
+      function plusTiles() {
+
+        if (tileColumn < 5) {
+          tileColumn += 1;
+          drawPVs();
+          drawScene();
+          refreshTitle()
+        } else {
+          alert('Oops! Not enough space.');
+        }
+
+
+      }
+
+      function refreshTitle(){
+        const pieces = (tileColumn-1)*20;
+        document.getElementById('title').innerHTML = 
+        "Total Power: <span>"+80*pieces/1000+"</span> KW<br><br><span>"+ 
+        pieces +"</span> tiles, <span>" + 
+        Math.floor(pieces * 1.34 * 0.42) + "</span> square metres" 
+        ;
+      }
+
+      function minusTiles() {
+        alert('Yet to be developed.');
+      }
+
+      window.addEventListener('mousedown', onMouseDown, false);
+      window.addEventListener('mouseup', onMouseUp, false);
 
       drawScene();
 
@@ -543,6 +514,10 @@
       colorButtonBlack.addEventListener('click', changeColorBlack, false);
       colorButtonBrown.addEventListener('click', changeColorBrown, false);
       colorButtongrey.addEventListener('click', changeColorgrey, false);
+      minusButton.addEventListener('click', minusTiles, false);
+      plusButton.addEventListener('click', plusTiles, false);
+
+
       console.addEventListener('click', addTiles, false);
 
 
