@@ -8,10 +8,9 @@ A 3D web application to visualise PV panel utility.
 - Adaptable to all modern web browsers, no software download required.
 - Link virtuality to reality: we use real world data to facilitate visualising your PV house.
 
-# Customise your panel
-- color (v1.0.1)
-- size (to be added)
-- Calculate pieces, area and total power output(fixed to 60 pieces for now; will be updated in later versions)
+# Customise your solar roof's
+- color, size & power
+- automatically calculate pieces, area and total power output
 
 # Distributed PV
 - Small and distributed PV owners, let's join the hub! (in later versions)
