@@ -2,7 +2,7 @@
 <html>
 
   <head>
-    <title>Visualise Your Solar House</title>
+    <title>View Solar</title>
     <meta charset="utf-8">
     <meta name="viewport"
       content="width=device-width, height=device-height, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
@@ -13,7 +13,7 @@
     <div class="float-on-top">
       <div class="upper-area">
         <div id="title"><b>Visualise Your PV House</b>
-          <br><br>( version 1.0.2 )
+          <br><br>( version 1.0.3 )
         </div>
       </div>
       <div class="lower-area">
@@ -37,7 +37,6 @@
 
     <script id="vertex-shader-3d" type="x-shader/x-vertex">
       uniform mat4 u_worldViewProjection;
-
       attribute vec4 a_position;
 
       void main() {
@@ -48,7 +47,6 @@
         precision highp float;
 
         void main() {
-          //gl_FragColor = vec4(0.38, 0.2, 0.1, 0.55);
           gl_FragColor = vec4(0.65, 0.6, 0.5, 0.77);
         }
   </script>
@@ -65,10 +63,10 @@
     <script id="fragment-shader-tiles" type="x-shader/x-fragment">
     precision highp float;
 
-    uniform vec4 u_color;
+    uniform vec3 u_color;
 
     void main() {
-      gl_FragColor = u_color;
+      gl_FragColor = vec4(u_color, 0.8);
     }
   </script>
 
@@ -88,41 +86,37 @@
 
       const console = document.getElementById('console');
 
+
+      const width = 13.4, height = 4.2; //single tile dimension
+      const rowNum = 6, columnNum = 7; //roof pieces
+      let tileRow = 5, tileColumn = 6, maxTileColumn = 6; //tile pieces
+      let gapW = 0.2, gapH = 0.2;
+
+      let tiles = [], PVs = [];
+
+      let ifTiles, tileColor = [0.3, 0.1, 0];
+      
       let aspect = window.innerWidth / window.innerHeight;
 
-      let ifTiles, tileColor = [0.3, 0.1, 0, 1];
-
-
-      //gl初始化
-      var canvas = document.querySelector("#canvas");
-      var gl = canvas.getContext("webgl");
+      //gl init
+      const canvas = document.querySelector("#canvas");
+      const gl = canvas.getContext("webgl");
       if (!gl) {
         //return;
       }
 
-      //贴图区
       //projection & view
       const fieldOfViewRadians = degToRad(60);
       const up = [0, 1, 0];
       let cameraPosition = [180, -10, 60], targetPosition = [0, 0, 0];
 
-      const radius = Math.sqrt(180*180 + 10*10 + 60*60);
+      const radius = Math.sqrt(180 * 180 + 10 * 10 + 60 * 60);
       let cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
       let viewMatrix = m4.inverse(cameraMatrix);
 
-      //tiles
-      const rowNum = 12, columnNum = 5;
-      let gapW = 0.2, gapH = 0.2;
-
-      const length = 20, width = 8, height = 6, innerLength = 10;
-
-      let tileRow = 11, tileColumn = 2;
-
-      let tiles = [], PVs = [];
       const uniformsThatAreComputedForEachtile = {
         u_worldViewProjection: m4.identity(),
-        u_color: [0.65, 0.6, 0.5, 0.77],
-
+        u_color: tileColor,
       };
 
       const arrays = {
@@ -156,7 +150,7 @@
         indices: { numComponents: 2, data: [0, 1, 2, 3, 4, 5, 6, 7, 1, 3, 5, 7, 1, 5, 3, 7], },
       };
 
-      function drawRoof() {
+      function roofBuffer() {
 
         for (var i = 0; i < rowNum; i++) {
 
@@ -170,8 +164,6 @@
               xTranslation: - (width + gapW) * (i - rowNum / 2) - width / 2 - gapW / 2,
               yTranslation: (j - columnNum / 2) * (height + gapH) * Math.cos(xRot) + gapH / 2 + bodyHeight / 2,
               zTranslation: (height + gapH) * j * Math.sin(xRot) - (height + gapH) * (columnNum - 0.5) * Math.sin(xRot),
-
-              u_color: (255, 0.5, 1),
 
             });
 
@@ -193,7 +185,7 @@
       }
 
 
-      function drawPVs() {
+      function pvBuffer() {
 
         for (var i = 1; i < tileRow; i++) {
 
@@ -227,8 +219,8 @@
 
       }
 
-      drawRoof();
-      drawPVs();
+      roofBuffer();
+      pvBuffer();
 
       const bufferInfo = webglUtils.createBufferInfoFromArrays(gl, arrays);
       const feetBufferInfo = webglUtils.createBufferInfoFromArrays(gl, feet);
@@ -338,7 +330,6 @@
 
           // Set the uniforms we just computed
           webglUtils.setUniforms(programTilesInfo, uniformsThatAreComputedForEachtile);
-          //webglUtils.setUniforms(programTilesInfo, uniformsThatAreComputedForEachtile);
 
           // Draw the geometry.
           gl.drawElements(gl.TRIANGLES, bufferInfo.numElements, gl.UNSIGNED_SHORT, 0);
@@ -356,10 +347,6 @@
 
         // Tell WebGL how to convert from clip space to pixels
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-        // gl.clearColor(1.0,1.0,1.0,1.0);
-        // Clear the canvas AND the depth buffer.
-        //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         var projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
 
@@ -444,21 +431,21 @@
 
       function changeColorBlack() {
 
-        tileColor = [0, 0, 0, 1];
+        tileColor = [0, 0, 0];
         drawScene();
 
       }
 
       function changeColorBrown() {
 
-        tileColor = [0.3, 0.1, 0, 1];
+        tileColor = [0.3, 0.1, 0];
         drawScene();
 
       }
 
       function changeColorgrey() {
 
-        tileColor = [0.15, 0.15, 0.15, 1];
+        tileColor = [0.15, 0.15, 0.15];
         drawScene();
 
       }
@@ -479,29 +466,38 @@
 
       function plusTiles() {
 
-        if (tileColumn < 5) {
+        if (tileColumn < maxTileColumn + 1) {
           tileColumn += 1;
-          drawPVs();
+          PVs = [];
+          pvBuffer();
           drawScene();
           refreshTitle()
         } else {
           alert('Oops! Not enough space.');
         }
 
-
-      }
-
-      function refreshTitle(){
-        const pieces = (tileColumn-1)*20;
-        document.getElementById('title').innerHTML = 
-        "Total Power: <span>"+80*pieces/1000+"</span> KW<br><br><span>"+ 
-        pieces +"</span> tiles, <span>" + 
-        Math.floor(pieces * 1.34 * 0.42) + "</span> square metres" 
-        ;
       }
 
       function minusTiles() {
-        alert('Yet to be developed.');
+        if (!(tileColumn - 1)) {
+          alert('There is none left.');
+        } else {
+          tileColumn -= 1;
+          PVs = [];
+          pvBuffer();
+          drawScene();
+          refreshTitle()
+        }
+      }
+
+
+      function refreshTitle() {
+        const pieces = (tileColumn - 1) * 20;
+        document.getElementById('title').innerHTML =
+          "Total Power: <span>" + 80 * pieces / 1000 + "</span> KW<br><br><span>" +
+          pieces + "</span> tiles, <span>" +
+          Math.floor(pieces * 1.34 * 0.42) + "</span> square metres"
+          ;
       }
 
       window.addEventListener('mousedown', onMouseDown, false);
