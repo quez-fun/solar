@@ -10,10 +10,11 @@
   </head>
 
   <body>
+
     <div class="float-on-top">
       <div class="upper-area">
         <div id="title"><b>Visualise Your PV House</b>
-          <br><br>( version 1.0.3 )
+          <br><br>( version 1.1.0 )
         </div>
       </div>
       <div class="lower-area">
@@ -29,11 +30,11 @@
             <div class="color-button" id="plus"> + </div>
           </div>
         </div>
-        <div id="console">Click here to add PV tiles</div>
+        <div id="console-panel">Click here to add PV tiles</div>
       </div>
     </div>
-
     <canvas id="canvas"></canvas>
+
 
     <script id="vertex-shader-3d" type="x-shader/x-vertex">
       uniform mat4 u_worldViewProjection;
@@ -50,7 +51,6 @@
           gl_FragColor = vec4(0.65, 0.6, 0.5, 0.77);
         }
   </script>
-
     <script id="vertex-shader-tiles" type="x-shader/x-vertex">
         uniform mat4 u_worldViewProjection;
 
@@ -69,6 +69,27 @@
       gl_FragColor = vec4(u_color, 0.8);
     }
   </script>
+    <script id="pick-vertex-shader-3d" type="x-shader/x-vertex">
+    uniform mat4 u_worldViewProjection;
+    
+    attribute vec4 a_position;
+    
+    void main() {
+      gl_Position = u_worldViewProjection * a_position;
+    }
+</script>
+    <script id="pick-fragment-shader-3d" type="x-shader/x-fragment">
+
+    precision mediump float;
+    
+    uniform vec4 u_id;
+    
+    void main() {
+      gl_FragColor = u_id;
+      //gl_FragColor = vec4(1.0, 0.8, 0.0, 1.0);
+    }
+
+</script>
 
     <script src="./webgl-utils.js"></script>
     <script src="./m4.js"></script>
@@ -84,7 +105,9 @@
       const minusButton = document.getElementsByClassName('color-button')[4];
       const plusButton = document.getElementsByClassName('color-button')[5];
 
-      const console = document.getElementById('console');
+      const consolePanel = document.getElementById('console-panel');
+
+      let id;
 
 
       const width = 13.4, height = 4.2; //single tile dimension
@@ -95,15 +118,27 @@
       let tiles = [], PVs = [];
 
       let ifTiles, tileColor = [0.3, 0.1, 0];
-      
-      let aspect = window.innerWidth / window.innerHeight;
+
 
       //gl init
-      const canvas = document.querySelector("#canvas");
+      const canvas = document.getElementById("canvas");
       const gl = canvas.getContext("webgl");
       if (!gl) {
         //return;
       }
+
+      let aspect = canvas.clientWidth / canvas.clientHeight;
+      const targetTexture = gl.createTexture();
+
+      /* 加入depth buffer（1/3） */
+      const depthBuffer = gl.createRenderbuffer();
+      const fb = gl.createFramebuffer();
+
+      let pickUniforms = {
+        u_worldViewProjection: m4.identity(),
+        u_world: m4.identity(),
+      };
+
 
       //projection & view
       const fieldOfViewRadians = degToRad(60);
@@ -165,6 +200,10 @@
               yTranslation: (j - columnNum / 2) * (height + gapH) * Math.cos(xRot) + gapH / 2 + bodyHeight / 2,
               zTranslation: (height + gapH) * j * Math.sin(xRot) - (height + gapH) * (columnNum - 0.5) * Math.sin(xRot),
 
+              pickIDUniform: {
+                u_id: [ 3 / 255, 0, 0, 1],
+              }
+
             });
 
             tiles.push({
@@ -175,6 +214,10 @@
               xTranslation: - (width + gapW) * (i - rowNum / 2) - width / 2 - gapW / 2,
               yTranslation: (j - columnNum / 2) * (height + gapH) * Math.cos(-xRot) + gapH / 2 + bodyHeight / 2,
               zTranslation: (height + gapH) * j * Math.sin(-xRot) + (height + gapH) * (columnNum - 0.5) * Math.sin(xRot),
+
+              pickIDUniform: {
+                u_id: [ 3 / 255, 0, 0, 1],
+              }
 
             });
 
@@ -226,6 +269,7 @@
       const feetBufferInfo = webglUtils.createBufferInfoFromArrays(gl, feet);
       const programInfo = webglUtils.createProgramInfo(gl, ["vertex-shader-3d", "fragment-shader-3d"]);
       const programTilesInfo = webglUtils.createProgramInfo(gl, ["vertex-shader-tiles", "fragment-shader-tiles"]);
+      const pickProgramInfo = webglUtils.createProgramInfo(gl, ["pick-vertex-shader-3d", "pick-fragment-shader-3d"]);
 
       function degToRad(d) {
         return d * Math.PI / 180;
@@ -234,8 +278,7 @@
 
       function drawScene() {
 
-        resizeCanvasToDisplaySize(canvas);
-        aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+        resizeCanvasToDisplaySize();
 
         // Tell WebGL how to convert from clip space to pixels
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -292,7 +335,7 @@
 
       function drawTiles() {
 
-        resizeCanvasToDisplaySize(canvas);
+        resizeCanvasToDisplaySize();
         aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
 
         // Tell WebGL how to convert from clip space to pixels
@@ -338,7 +381,97 @@
 
       }
 
+      function renderPicking(e) {
 
+        //resizeCanvasToDisplaySize(canvas);
+        aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+
+        //创建frame buffer
+        gl.bindTexture(gl.TEXTURE_2D, targetTexture);
+
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.canvas.width * 2, gl.canvas.height * 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        // 加入depth buffer（2/3）
+        gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, gl.canvas.width * 2, gl.canvas.height * 2);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, targetTexture, 0);
+
+        // 加入depth buffer（3/3） 
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
+
+        gl.bindTexture(gl.TEXTURE_2D, targetTexture);
+
+        // 创建mouse event对frustum matrix的转换通讯
+
+        const near = 1, far = 2000;
+        const top = Math.tan(degToRad(60) * 0.5) * near;
+        const bottom = -top;
+        const left = aspect * bottom;
+        const right = aspect * top;
+        const width = Math.abs(right - left);
+        const height = Math.abs(top - bottom);
+        const rect = canvas.getBoundingClientRect();
+
+        const pixelX = (e.clientX - rect.left) * gl.canvas.width / gl.canvas.clientWidth;
+        const pixelY = gl.canvas.height - (e.clientY - rect.top) * gl.canvas.height / gl.canvas.clientHeight - 1;
+
+        const subLeft = left + pixelX * width / gl.canvas.width;
+        const subBottom = bottom + pixelY * height / gl.canvas.height;
+        const subWidth = width / gl.canvas.width;
+        const subHeight = height / gl.canvas.height;
+
+        // Tell WebGL how to convert from clip space to pixels
+        gl.viewport(0, 0, 1, 1);
+
+        // Clear the canvas AND the depth buffer.
+       // gl.clear(gl.COLOR_BUFFER_BIT); //| gl.DEPTH_BUFFER_BIT
+
+        var projectionMatrix = m4.frustum(subLeft, subLeft + subWidth, subBottom, subBottom + subHeight, near, far);
+
+        var viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+
+        gl.useProgram(pickProgramInfo.program);
+
+        webglUtils.setBuffersAndAttributes(gl, pickProgramInfo, bufferInfo);
+
+        webglUtils.setUniforms(pickProgramInfo, pickUniforms);
+        
+        // Draw objects
+        tiles.forEach(function (tile) {
+
+          let worldMatrix = m4.xRotation(0);
+          worldMatrix = m4.translate(worldMatrix, tile.xTranslation, tile.yTranslation, tile.zTranslation);
+          worldMatrix = m4.yRotate(worldMatrix, tile.yRotation);
+          worldMatrix = m4.xRotate(worldMatrix, tile.xRotation);
+          worldMatrix = m4.zRotate(worldMatrix, tile.zRotation);
+          pickUniforms.u_world = worldMatrix;
+
+          // Multiply the matrices.
+          m4.multiply(viewProjectionMatrix, worldMatrix, pickUniforms.u_worldViewProjection);
+
+          // Set the uniforms we just computed
+          webglUtils.setUniforms(pickProgramInfo, pickUniforms);
+
+          webglUtils.setUniforms(pickProgramInfo, tile.pickIDUniform);
+
+          gl.drawElements(gl.TRIANGLES, bufferInfo.numElements, gl.UNSIGNED_SHORT, 0);
+
+        });
+
+        //阅读物体id
+        const pixels = new Uint8Array(4);
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+        id = pixels[0];
+        console.log('pixel is: ' + pixels); //目前读到的是drawscene
+
+      }
 
       function drawBody() {
 
@@ -364,37 +497,37 @@
 
         webglUtils.setUniforms(programInfo, uniformsThatAreComputedForEachtile);
 
-
-
         gl.drawElements(gl.LINES, feetBufferInfo.numElements, gl.UNSIGNED_SHORT, 0);
         //console.log('drawScene');
 
       }
 
-      function resizeCanvasToDisplaySize(canvas, multiplier) {
-        multiplier = multiplier || 2;
-        const width = canvas.clientWidth * multiplier | 0;
-        const height = canvas.clientHeight * multiplier | 0;
+      function resizeCanvasToDisplaySize() {
+        const width = canvas.clientWidth | 0;
+        const height = canvas.clientHeight | 0;
         if (canvas.width !== width || canvas.height !== height) {
           canvas.width = width;
           canvas.height = height;
           aspect = width / height;
           return true;
+          drawScene();
+          drawBody();
         }
         return false;
-        //drawScene();
       }
 
       let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
 
       function onMouseDown(e) {
 
+        //renderPicking(e);
         //isMouseDown = true;
         window.addEventListener('mousemove', onMouseMove, false);
 
         x1 = e.clientX, y1 = e.clientY;
 
         //console.log('mousedown');
+
 
       }
 
@@ -456,11 +589,11 @@
         ifTiles = true;
         drawScene();
         document.getElementById('color-selection').style.display = 'flex';
-        console.innerHTML = "";
+        consolePanel.innerHTML = "";
         refreshTitle()
-        console.style.color = "grey";
-        console.innerHTML = "click on buttons to customise";
-        console.removeEventListener('click', addTiles, false);
+        consolePanel.style.color = "grey";
+        consolePanel.innerHTML = "click on buttons to customise";
+        consolePanel.removeEventListener('click', addTiles, false);
 
       }
 
@@ -490,7 +623,6 @@
         }
       }
 
-
       function refreshTitle() {
         const pieces = (tileColumn - 1) * 20;
         document.getElementById('title').innerHTML =
@@ -499,6 +631,7 @@
           Math.floor(pieces * 1.34 * 0.42) + "</span> square metres"
           ;
       }
+
 
       window.addEventListener('mousedown', onMouseDown, false);
       window.addEventListener('mouseup', onMouseUp, false);
@@ -513,9 +646,9 @@
       minusButton.addEventListener('click', minusTiles, false);
       plusButton.addEventListener('click', plusTiles, false);
 
+      consolePanel.addEventListener('click', addTiles, false);
 
-      console.addEventListener('click', addTiles, false);
-
+      window.addEventListener('mousemove', renderPicking, false);
 
     </script>
 
