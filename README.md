@@ -1,7 +1,8 @@
 # This tool is
 A 3D web application to visualise PV panel utility.
 
-<img width="573" alt="Screenshot 2024-05-17 at 15 50 15" src="https://github.com/quez-fun/solar/assets/54435650/2ef49bd9-143f-4a7d-8e8d-68ca22ca8e74">
+<img width="403" alt="Screenshot 2024-05-26 at 22 28 55" src="https://github.com/quez-fun/solar/assets/54435650/b929a3e4-1b3d-4d6a-9fae-48813912f482">
+
 
 # Main feature
 - Fully 3D, but extremely light!
