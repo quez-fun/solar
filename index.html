@@ -11,16 +11,20 @@
 
   <body>
 
+    <span class="tag">
+      <a href="">
+        test tag
+      </a>
+    </span>
     <div class="float-on-top">
       <div class="upper-area">
         <div id="title"><b>Visualise Your PV House</b>
-          <br><br>( version 1.1.1 )
+          <br><br>( version 1.1.2 )
         </div>
       </div>
       <div class="lower-area">
 
         <div id="color-selection">
-
           <div>
             <div class="color-button" id="black"></div>
             <div class="color-button" id="brown"></div>
@@ -106,6 +110,8 @@
 
       const consolePanel = document.getElementById('console-panel');
 
+      const tag = document.getElementsByClassName('tag')[0];
+
       let id;
 
       const width = 13.4, height = 4.2; //single tile dimension
@@ -153,7 +159,7 @@
         gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
         gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
       }
-     
+
       const fb = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb); //这条放出来以后，图形就没了，但也分离了渲染层和pick层
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, targetTexture, 0);
@@ -455,7 +461,6 @@
         // Clear the canvas AND the depth buffer.
         // gl.clear(gl.COLOR_BUFFER_BIT); //| gl.DEPTH_BUFFER_BIT
 
-
         var projectionMatrix = m4.frustum(subLeft, subLeft + subWidth, subBottom, subBottom + subHeight, near, far);
 
         var viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
@@ -493,8 +498,15 @@
         const pixels = new Uint8Array(4);
         gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
-        id = pixels[0];
-        console.log('pixel is: ' + pixels); //目前读到的是drawscene
+        if (pixels[0] > 0) {
+          tag.style.display = 'block';
+
+          tag.style.left = e.clientX - 35 + 'px';
+          tag.style.top = e.clientY - 50 + 'px';
+
+        } else {
+          tag.style.display = 'none';
+        }
 
       }
 
@@ -661,7 +673,7 @@
 
       window.addEventListener('resize', drawScene, false);
 
-      
+
       colorButtonBlack.addEventListener('click', changeColorBlack, false);
       colorButtonBrown.addEventListener('click', changeColorBrown, false);
       colorButtongrey.addEventListener('click', changeColorgrey, false);
@@ -669,7 +681,7 @@
       plusButton.addEventListener('click', plusTiles, false);
 
       consolePanel.addEventListener('click', addTiles, false);
-      
+
 
       window.addEventListener('mousemove', renderPicking, false);
 
