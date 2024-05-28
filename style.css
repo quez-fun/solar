@@ -99,14 +99,65 @@ canvas {
     background-color: grey;
 }
 
-#console {
+#console-panel {
     padding: 20px;
     color: rgb(0, 255, 208);
     font-size: large;
     text-align: center;
+
 }
 
 span {
     color: aquamarine;
     font-weight: 300;
 }
+
+
+.tag {
+    position: absolute;
+    z-index: 99;
+    display: none;
+    top: 0;
+    left: 0;
+    width: 70px;
+  }
+
+  a {
+    border: 1px solid #1d71b8;
+    background-color: #fff;
+    border-radius: 5px;
+    color: #1d71b8;
+    display: block;
+    font-size: 11px;
+    line-height: 18px;
+    margin: auto;
+    padding: 5px;
+    text-decoration: none;
+    text-align: center;
+  }
+
+  a:before {
+    border: 11px solid transparent;
+    border-bottom: 0;
+    border-top: 11px solid #1d71b8;
+    bottom: 0;
+    content: "";
+    display: block;
+    left: 50%;
+    position: absolute;
+    transform: translate(-50%, 90%);
+    width: 0;
+  }
+
+  a:after {
+    border: 10px solid transparent;
+    border-bottom: 0;
+    border-top: 10px solid #fff;
+    bottom: 0;
+    content: "";
+    display: block;
+    left: 50%;
+    position: absolute;
+    transform: translate(-50%, 85%);
+    width: 0;
+  }
