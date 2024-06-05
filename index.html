@@ -19,7 +19,7 @@
     <div class="float-on-top">
       <div class="upper-area">
         <div id="title"><b>Visualise Your PV House</b>
-          <br><br>( version 1.1.3 )
+          <br><br>( version 1.1.4 )
         </div>
       </div>
       <div class="lower-area">
@@ -119,12 +119,14 @@
       let tileRow = 5, tileColumn = 6, maxTileColumn = 6; //tile pieces
       let gapW = 0.2, gapH = 0.2;
 
-      let factor=1;
+      let factor = 1, delta0, delta1;
 
       let tiles = [], PVs = [];
 
       let ifTiles, tileColor = [0.3, 0.1, 0];
 
+      let x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+      let rad = 0;
 
       //gl init
       const canvas = document.getElementById("canvas");
@@ -554,44 +556,40 @@
         return false;
       }
 
-      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-
       function onMouseDown(e) {
-
-        //renderPicking(e);
 
         window.addEventListener('mousemove', onMouseMove, false);
 
-        x1 = e.clientX, y1 = e.clientY;
+        x0 = e.clientX, y0 = e.clientY;
 
       }
 
-      let rad = 0;
+
       function onMouseMove(e) {
 
-        x2 = e.clientX, y2 = e.clientY;
+        x1 = e.clientX, y1 = e.clientY;
 
-        rad -= (x2 - x1) / 50;
+        rad -= (x1 - x0) / 50;
 
         cameraPosition[0] = radius * Math.cos(rad);
         cameraPosition[2] = radius * Math.sin(rad);
 
-        //cameraPosition[1] += y2-y1;
+        //cameraPosition[1] += y1-y0;
         //console.log(cameraPosition[1]); 
 
         var cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
         viewMatrix = m4.inverse(cameraMatrix);
 
         drawScene();
-        x1 = x2;
-        y1 = y2;
+        x0 = x1;
+        y0 = y1;
       }
 
       function onMouseUp() {
         x1 = 0;
-        x2 = 0;
+        x0 = 0;
         y1 = 0;
-        y2 = 0;
+        y0 = 0;
         //isMouseDown = false;
         window.removeEventListener('mousemove', onMouseMove, false);
       }
@@ -667,13 +665,13 @@
           ;
       }
 
-      function zoom(e){
-        e.preventDefault();
+      function zoom(e) {
+
+        console.log('zooming');
+
         radius += e.deltaY;
 
         radius = Math.min(300, Math.max(radius, 120));
-       
-        console.log(radius);
 
         cameraPosition[0] = radius * Math.cos(rad);
         cameraPosition[2] = radius * Math.sin(rad);
@@ -684,14 +682,100 @@
         drawScene();
       }
 
+      function touchstart(e) {
 
+        switch (e.targetTouches.length) {
+
+          case 1:
+
+            x0 = e.pageX;
+
+            break;
+
+          default:
+
+            const deltaX = e.targetTouches[0].pageX - e.targetTouches[1].pageX;
+            const deltaY = e.targetTouches[0].pageY - e.targetTouches[1].pageY;
+            delta0 = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            break;
+
+        }
+
+        window.addEventListener('touchmove', touchmove, false);
+        window.addEventListener('touchend', touchend, false);
+
+      }
+
+      function touchmove(e) {
+
+        e.preventDefault();
+
+        switch (e.targetTouches.length) {
+
+          case 1:
+            x1 = e.pageX;
+
+            rad -= (x1 - x0) / 50;
+
+            cameraPosition[0] = radius * Math.cos(rad);
+            cameraPosition[2] = radius * Math.sin(rad);
+
+            //cameraPosition[1] += y1-y0;
+            //console.log(cameraPosition[1]); 
+
+            var cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
+            viewMatrix = m4.inverse(cameraMatrix);
+
+            drawScene();
+            x0 = x1;
+            y0 = y1;
+
+            break;
+
+          default:
+
+            const deltaX = e.targetTouches[0].pageX - e.targetTouches[1].pageX;
+            const deltaY = e.targetTouches[0].pageY - e.targetTouches[1].pageY;
+
+            if (!delta0) {
+              delta0 = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            } else {
+              delta1 = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+              radius += (delta1-delta0)/50;
+
+              radius = Math.min(300, Math.max(radius, 120));
+
+              cameraPosition[0] = radius * Math.cos(rad);
+              cameraPosition[2] = radius * Math.sin(rad);
+
+              var cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
+              viewMatrix = m4.inverse(cameraMatrix);
+
+              drawScene();
+
+              delta0 = delta1;
+            }
+            break;
+
+        }
+
+      }
+
+      function touchend() {
+        window.removeEventListener('touchmove', touchmove, false);
+        window.removeEventListener('touchend', touchend, false);
+      }
+
+
+      window.addEventListener('wheel', zoom, false);
       window.addEventListener('mousedown', onMouseDown, false);
       window.addEventListener('mouseup', onMouseUp, false);
 
       drawScene();
 
       window.addEventListener('resize', drawScene, false);
-
 
       colorButtonBlack.addEventListener('click', changeColorBlack, false);
       colorButtonBrown.addEventListener('click', changeColorBrown, false);
@@ -703,7 +787,8 @@
 
 
       window.addEventListener('mousemove', renderPicking, false);
-      window.addEventListener( 'wheel', zoom, { passive: false } );
+
+      window.addEventListener('touchstart', touchstart, false);
 
     </script>
 
