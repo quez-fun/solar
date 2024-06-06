@@ -11,6 +11,9 @@
 
   <body>
 
+    <div>temporary mobile console area:<div id="tmpConsole"></div>
+  </div>
+
     <span class="tag">
       <a href="">
         test tag
@@ -100,6 +103,10 @@
     <script>
 
       "use strict";
+
+      const tmpConsole = document.getElementById("tmpConsole");
+
+      const topLayer = document.getElementsByClassName("float-on-top")[0];
 
       const colorButtonBlack = document.getElementsByClassName('color-button')[0];
       const colorButtonBrown = document.getElementsByClassName('color-button')[1];
@@ -667,7 +674,7 @@
 
       function zoom(e) {
 
-        console.log('zooming');
+        event.preventDefault();
 
         radius += e.deltaY;
 
@@ -698,12 +705,14 @@
             const deltaY = e.targetTouches[0].pageY - e.targetTouches[1].pageY;
             delta0 = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
+            tmpConsole.innerText = delta0;
+
             break;
 
         }
 
-        window.addEventListener('touchmove', touchmove, false);
-        window.addEventListener('touchend', touchend, false);
+        topLayer.addEventListener('touchmove', touchmove, false);
+        topLayer.addEventListener('touchend', touchend, false);
 
       }
 
@@ -720,9 +729,6 @@
 
             cameraPosition[0] = radius * Math.cos(rad);
             cameraPosition[2] = radius * Math.sin(rad);
-
-            //cameraPosition[1] += y1-y0;
-            //console.log(cameraPosition[1]); 
 
             var cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up, m4.identity());
             viewMatrix = m4.inverse(cameraMatrix);
@@ -743,9 +749,11 @@
             } else {
               delta1 = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-              radius += (delta1-delta0)/50;
+              radius -= (delta1-delta0);
 
               radius = Math.min(300, Math.max(radius, 120));
+
+              tmpConsole.innerText = radius;
 
               cameraPosition[0] = radius * Math.cos(rad);
               cameraPosition[2] = radius * Math.sin(rad);
@@ -764,12 +772,12 @@
       }
 
       function touchend() {
-        window.removeEventListener('touchmove', touchmove, false);
-        window.removeEventListener('touchend', touchend, false);
+        topLayer.removeEventListener('touchmove', touchmove, false);
+        topLayer.removeEventListener('touchend', touchend, false);
       }
 
 
-      window.addEventListener('wheel', zoom, false);
+      window.addEventListener('wheel', zoom, { passive: false } );
       window.addEventListener('mousedown', onMouseDown, false);
       window.addEventListener('mouseup', onMouseUp, false);
 
@@ -785,10 +793,9 @@
 
       consolePanel.addEventListener('click', addTiles, false);
 
-
       window.addEventListener('mousemove', renderPicking, false);
 
-      window.addEventListener('touchstart', touchstart, false);
+      topLayer.addEventListener('touchstart', touchstart, false);
 
     </script>
 
