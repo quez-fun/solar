@@ -11,8 +11,9 @@
 
   <body>
 
+    <!--
     <div>temporary mobile console area:<div id="tmpConsole"></div>
-  </div>
+  </div>-->
 
     <span class="tag">
       <a href="">
@@ -104,7 +105,7 @@
 
       "use strict";
 
-      const tmpConsole = document.getElementById("tmpConsole");
+      //const tmpConsole = document.getElementById("tmpConsole");
 
       const topLayer = document.getElementsByClassName("float-on-top")[0];
 
@@ -705,7 +706,7 @@
             const deltaY = e.targetTouches[0].pageY - e.targetTouches[1].pageY;
             delta0 = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-            tmpConsole.innerText = delta0;
+            //tmpConsole.innerText = delta0;
 
             break;
 
@@ -753,7 +754,7 @@
 
               radius = Math.min(300, Math.max(radius, 120));
 
-              tmpConsole.innerText = radius;
+              //tmpConsole.innerText = radius;
 
               cameraPosition[0] = radius * Math.cos(rad);
               cameraPosition[2] = radius * Math.sin(rad);
@@ -796,6 +797,8 @@
       window.addEventListener('mousemove', renderPicking, false);
 
       topLayer.addEventListener('touchstart', touchstart, false);
+
+      document.addEventListener('gesturestart', function(event){event.preventDefault()}, false);
 
     </script>
 
